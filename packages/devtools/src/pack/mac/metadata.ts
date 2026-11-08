@@ -15,33 +15,29 @@ export async function metadataToPlist(
     "Info.plist"
   );
 
-  try {
-    if (!existsSync(dirname(outputPath))) {
-      await mkdir(dirname(outputPath), { recursive: true });
-    }
-
-    const plist = new Plist({
-      CFBundleExecutable: metadata.name,
-      CFBundleIdentifier: metadata.bundleId,
-      CFBundleName: metadata.displayName,
-      CFBundleDisplayName: metadata.displayName,
-      CFBundlePackageType: "APPL",
-      CFBundleShortVersionString: metadata.version,
-      CFBundleVersion: metadata.version,
-      CFBundleIconFile: metadata.icon,
-      LSUIElement: false,
-      NSHighResolutionCapable: true,
-      CFBundleGetInfoString: metadata.description ?? "",
-      LSMinimumSystemVersion: metadata.minimumSystemVersion ?? "11.0",
-      ...(metadata.category && {
-        LSApplicationCategoryType: metadata.category,
-      }),
-    });
-
-    await writeFile(outputPath, plist.toString());
-
-    return true;
-  } catch {
-    return false;
+  if (!existsSync(dirname(outputPath))) {
+    await mkdir(dirname(outputPath), { recursive: true });
   }
+
+  const plist = new Plist({
+    CFBundleExecutable: metadata.name,
+    CFBundleIdentifier: metadata.bundleId,
+    CFBundleName: metadata.displayName,
+    CFBundleDisplayName: metadata.displayName,
+    CFBundlePackageType: "APPL",
+    CFBundleShortVersionString: metadata.version,
+    CFBundleVersion: metadata.version,
+    CFBundleIconFile: metadata.icon,
+    LSUIElement: false,
+    NSHighResolutionCapable: true,
+    CFBundleGetInfoString: metadata.description ?? "",
+    LSMinimumSystemVersion: metadata.minimumSystemVersion ?? "11.0",
+    ...(metadata.category && {
+      LSApplicationCategoryType: metadata.category,
+    }),
+  });
+
+  await writeFile(outputPath, plist.toString());
+
+  return true;
 }

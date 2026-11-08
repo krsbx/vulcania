@@ -10,39 +10,35 @@ export async function metadataToDesktop(
 ): Promise<boolean> {
   const outputPath = resolve(distPath, `${metadata.name}.desktop`);
 
-  try {
-    if (!existsSync(dirname(outputPath))) {
-      await mkdir(dirname(outputPath), { recursive: true });
-    }
-
-    let desktop = "[Desktop Entry]\n";
-
-    let categories = metadata.categories?.join?.(";") ?? "Utility;Development;";
-
-    if (!categories.endsWith(";")) {
-      categories += ";";
-    }
-
-    const toml = new Toml({
-      Type: "Application",
-      Name: metadata.displayName,
-      Comment: metadata.description ?? "",
-      Exec: `./${metadata.name}`,
-      Icon: metadata.icon,
-      Terminal: false,
-      Categories: categories,
-      GenericName: metadata.genericName ?? metadata.displayName,
-      StartupNotify: true,
-      StartupWMClass: metadata.name,
-      "X-AppImage-Id": metadata.bundleId,
-    });
-
-    desktop += toml;
-
-    await writeFile(outputPath, desktop);
-
-    return true;
-  } catch {
-    return false;
+  if (!existsSync(dirname(outputPath))) {
+    await mkdir(dirname(outputPath), { recursive: true });
   }
+
+  let desktop = "[Desktop Entry]\n";
+
+  let categories = metadata.categories?.join?.(";") ?? "Utility;Development;";
+
+  if (!categories.endsWith(";")) {
+    categories += ";";
+  }
+
+  const toml = new Toml({
+    Type: "Application",
+    Name: metadata.displayName,
+    Comment: metadata.description ?? "",
+    Exec: `./${metadata.name}`,
+    Icon: metadata.icon,
+    Terminal: false,
+    Categories: categories,
+    GenericName: metadata.genericName ?? metadata.displayName,
+    StartupNotify: true,
+    StartupWMClass: metadata.name,
+    "X-AppImage-Id": metadata.bundleId,
+  });
+
+  desktop += toml;
+
+  await writeFile(outputPath, desktop);
+
+  return true;
 }
