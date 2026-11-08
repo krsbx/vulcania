@@ -3,8 +3,13 @@
  * real dispatcher: track-press jumps to the angle's value, handle-dot
  * press drags, hover never mutates.
  */
-import { MouseButton, StateStore } from "@vulcania/core";
-import { PointerDispatcher, PointerInputKind } from "@vulcania/interactions";
+import { KeyCode, KeyModifiers, MouseButton, StateStore } from "@vulcania/core";
+import {
+  FocusDispatcher,
+  KeyboardInputKind,
+  PointerDispatcher,
+  PointerInputKind,
+} from "@vulcania/interactions";
 import { type LayoutContext, layoutFlex, type LayoutNode } from "@vulcania/layout";
 import { parseColor } from "@vulcania/paint";
 import { describe, expect, test } from "bun:test";
@@ -21,17 +26,22 @@ interface Harness {
   fire(kind: PointerInputKind, x: number, y: number): void;
   render(widget: Parameters<typeof renderHeadless>[0]): void;
   root(): LayoutNode;
+  /** Focus the slider (click-to-focus) at a point on it. */
+  focus(x: number, y: number): void;
+  key(key: KeyCode, modifiers?: KeyModifiers): void;
 }
 
 function setup(widget: Parameters<typeof renderHeadless>[0]): Harness {
   const stateStore = new StateStore();
   const reconciler = new Reconciler(stateStore);
   const dispatcher = new PointerDispatcher();
+  const focus = new FocusDispatcher();
 
   const layoutIndex = new Map<number, LayoutNode>();
+  const focusableNodes: LayoutNode[] = [];
   const ctx: LayoutContext = {
     layoutIndex,
-    focusableNodes: [],
+    focusableNodes,
     scrollOffsetOf: () => ({ x: 0, y: 0 }),
     getStableId: reconciler.getStableId,
     measureText: (text) => ({ width: text.length * 8, height: 18 }),
@@ -70,6 +80,35 @@ function setup(widget: Parameters<typeof renderHeadless>[0]): Harness {
       });
     },
     root: () => root,
+    focus(x, y) {
+      const down = {
+        kind: PointerInputKind.Down,
+        x,
+        y,
+        button: MouseButton.Left,
+      };
+      dispatcher.dispatch({ events: [down], root, layoutIndex });
+      focus.dispatch({
+        pointerEvents: [down],
+        keyboardEvents: [],
+        root,
+        layoutIndex,
+        focusableNodes,
+        stateStore,
+      });
+    },
+    key(key, modifiers = KeyModifiers.None) {
+      focus.dispatch({
+        pointerEvents: [],
+        keyboardEvents: [
+          { kind: KeyboardInputKind.KeyDown, key, modifiers, repeat: false },
+        ],
+        root,
+        layoutIndex,
+        focusableNodes,
+        stateStore,
+      });
+    },
   };
 }
 
@@ -185,5 +224,43 @@ describe("CircularSlider drag", () => {
     // (The 25% handle itself sits on the LEFT for counter-clockwise.)
     fire(PointerInputKind.Down, 24, 47);
     expect(changes).toEqual([50]);
+  });
+});
+
+describe("CircularSlider keyboard", () => {
+  test("arrows step the value — flying-pan reuses the single handler", () => {
+    let current = 50;
+    const widget = (): Parameters<typeof renderHeadless>[0] =>
+      CircularSlider({
+        value: current,
+        min: 0,
+        max: 100,
+        onChange: (next) => {
+          current = next;
+        },
+      });
+    const h = setup(widget());
+
+    // Focus-click near the value-50 handle (bottom of the ring). The
+    // click may jump ±1 if it lands a hair off the dot — capture the
+    // committed value and assert the keyboard's RELATIVE steps.
+    h.focus(24, 46);
+    const start = current;
+    expect(start).toBeGreaterThanOrEqual(49);
+    expect(start).toBeLessThanOrEqual(51);
+
+    // Re-render between keys — the controlled handler reads props.value
+    // from the last build (the stale-value doctrine).
+    h.key(KeyCode.Right);
+    h.render(widget());
+    expect(current).toBe(start + 1);
+
+    h.key(KeyCode.Down);
+    h.render(widget());
+    expect(current).toBe(start);
+
+    h.key(KeyCode.Up, KeyModifiers.Shift);
+    h.render(widget());
+    expect(current).toBe(start + 10);
   });
 });

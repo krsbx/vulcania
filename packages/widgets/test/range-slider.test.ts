@@ -5,12 +5,19 @@
  * hover never mutates, step snapping, disabled no-op, release ends drag.
  */
 import {
+  KeyCode,
+  KeyModifiers,
   MouseButton,
   Palette,
   type ReconcilableWidget,
   StateStore,
 } from "@vulcania/core";
-import { PointerDispatcher, PointerInputKind } from "@vulcania/interactions";
+import {
+  FocusDispatcher,
+  KeyboardInputKind,
+  PointerDispatcher,
+  PointerInputKind,
+} from "@vulcania/interactions";
 import {
   type LayoutContext,
   layoutFlex,
@@ -44,17 +51,22 @@ interface Harness {
     }[]
   ): void;
   render(widget: Parameters<typeof renderHeadless>[0]): void;
+  /** Focus the slider (click-to-focus) at a point on it. */
+  focus(x: number, y: number): void;
+  key(key: KeyCode, modifiers?: KeyModifiers): void;
 }
 
 function setup(widget: ReconcilableWidget): Harness {
   const stateStore = new StateStore();
   const reconciler = new Reconciler(stateStore);
   const dispatcher = new PointerDispatcher();
+  const focus = new FocusDispatcher();
 
   const layoutIndex = new Map<number, LayoutNode>();
+  const focusableNodes: LayoutNode[] = [];
   const ctx: LayoutContext = {
     layoutIndex,
-    focusableNodes: [],
+    focusableNodes,
     scrollOffsetOf: () => ({ x: 0, y: 0 }),
     getStableId: reconciler.getStableId,
     measureText: (text) => ({ width: text.length * 8, height: 18 }),
@@ -84,6 +96,30 @@ function setup(widget: ReconcilableWidget): Harness {
         availableWidth: 400,
         availableHeight: 300,
         ctx,
+      });
+    },
+    focus(x, y) {
+      const down = { kind: PointerInputKind.Down, x, y, button: MouseButton.Left };
+      dispatcher.dispatch({ events: [down], root, layoutIndex, stateStore });
+      focus.dispatch({
+        pointerEvents: [down],
+        keyboardEvents: [],
+        root,
+        layoutIndex,
+        focusableNodes,
+        stateStore,
+      });
+    },
+    key(key, modifiers = KeyModifiers.None) {
+      focus.dispatch({
+        pointerEvents: [],
+        keyboardEvents: [
+          { kind: KeyboardInputKind.KeyDown, key, modifiers, repeat: false },
+        ],
+        root,
+        layoutIndex,
+        focusableNodes,
+        stateStore,
       });
     },
   };
@@ -359,5 +395,103 @@ describe("RangeSlider drag", () => {
     h.fire([ev(PointerInputKind.Down, 12, 5)]);
     expect(current[1]).toBeGreaterThan(75);
     expect(current[0]).toBe(25);
+  });
+});
+
+describe("RangeSlider keyboard", () => {
+  /** Controlled range + harness; the value lives in the closure. */
+  function keyboardHarness(initial: [number, number]): {
+    h: Harness;
+    value: () => [number, number];
+    widget: () => ReconcilableWidget;
+  } {
+    let current: [number, number] = initial;
+    const widget = (): ReconcilableWidget =>
+      RangeSlider({
+        value: current,
+        min: MIN,
+        max: MAX,
+        style: { width: WIDTH, height: HEIGHT },
+        onChange: (next) => {
+          current = next;
+        },
+      });
+    return { h: setup(widget()), value: () => current, widget };
+  }
+
+  test("arrows move HIGH when nothing grabbed the low handle", () => {
+    const { h, value, widget } = keyboardHarness([25, 75]);
+    h.focus(handleX(75) + 8, 12);
+
+    h.key(KeyCode.Right);
+    h.render(widget());
+    expect(value()).toEqual([25, 76]);
+
+    h.key(KeyCode.Left);
+    h.render(widget());
+    expect(value()).toEqual([25, 75]);
+  });
+
+  test("pointer-grabbed handle and keyboard share the active handle", () => {
+    const { h, value, widget } = keyboardHarness([25, 75]);
+
+    // focus() carries a pointer down at the LOW handle — drag picks it
+    // and persists activeHandle in the store; keys continue that drag.
+    h.focus(handleX(25) + 8, 12);
+    h.key(KeyCode.Left);
+    h.render(widget());
+    const [low, high] = value();
+    expect(low).toBe(24);
+    expect(high).toBe(75);
+  });
+
+  test("Shift ×10 on the active handle", () => {
+    const { h, value, widget } = keyboardHarness([25, 75]);
+    h.focus(handleX(75) + 8, 12);
+
+    h.key(KeyCode.Right, KeyModifiers.Shift);
+    h.render(widget());
+    expect(value()).toEqual([25, 85]);
+  });
+
+  test("no-cross clamp — coincident click grabs low; right clamps at high", () => {
+    const { h, value, widget } = keyboardHarness([50, 50]);
+
+    // The focus click lands on the coincident handle: the low tie-break
+    // grabs LOW. Right arrow clamps at high (handles meet, never swap).
+    h.focus(handleX(50) + 8, 12);
+    h.key(KeyCode.Right);
+    h.render(widget());
+    expect(value()).toEqual([50, 50]);
+
+    // Left moves low away freely — high stays put.
+    h.key(KeyCode.Left);
+    h.render(widget());
+    expect(value()).toEqual([49, 50]);
+  });
+
+  test("user onKeyDown still receives the payload", () => {
+    const payloads: number[] = [];
+    let current: [number, number] = [25, 75];
+    const widget = (): ReconcilableWidget =>
+      RangeSlider({
+        value: current,
+        min: MIN,
+        max: MAX,
+        style: { width: WIDTH, height: HEIGHT },
+        onKeyDown: (payload) => {
+          payloads.push(payload.key);
+        },
+        onChange: (next) => {
+          current = next;
+        },
+      });
+    const h = setup(widget());
+    h.focus(handleX(75) + 8, 12);
+
+    h.key(KeyCode.Right);
+    h.render(widget());
+    expect(current).toEqual([25, 76]);
+    expect(payloads).toEqual([KeyCode.Right]);
   });
 });

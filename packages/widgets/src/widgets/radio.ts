@@ -56,7 +56,7 @@ export function Radio(props: RadioProps): ReconcilableWidget {
       borderWidth: Metrics.borderWidth,
       borderColor: Palette.border,
       backgroundColor: Palette.surface,
-      focusable: focusableWhen(props.disabled),
+      focusable: focusableWhen(!props.disabled),
       ...style,
       _checked: {
         borderColor: Palette.accent,

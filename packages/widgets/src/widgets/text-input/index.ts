@@ -153,7 +153,7 @@ export function TextInput(props: TextInputProps): ReconcilableWidget {
       placeholderColor: Palette.textMuted,
       caretColor: Palette.text,
       selectionColor: Palette.selection,
-      focusable: focusableWhen(disabled),
+      focusable: focusableWhen(!disabled),
       ...style,
       _hover: {
         backgroundColor: Palette.surfaceHover,

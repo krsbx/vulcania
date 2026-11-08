@@ -20,6 +20,7 @@ import {
 } from "@vulcania/layout";
 import { createWidget } from "../create-widget.ts";
 import { createDragValueHandler } from "./slider/drag.ts";
+import { createSliderKeyHandler } from "./slider/keyboard.ts";
 import {
   HANDLE_SIZE,
   isOnBarHandle,
@@ -41,6 +42,7 @@ export function SliderBar(props: SliderBarProps): ReconcilableWidget {
     onClick,
     onPointerDown,
     onPointerMove,
+    onKeyDown,
     ...handlers
   } = props;
 
@@ -70,6 +72,15 @@ export function SliderBar(props: SliderBarProps): ReconcilableWidget {
         ratio: valueToRatio({ value: sliderValue(props), min, max }),
         isVertical: !isHorizontal,
       }),
+  });
+
+  const keyHandler = createSliderKeyHandler({
+    disabled: props.disabled,
+    value: props.value,
+    min,
+    max,
+    step: props.step,
+    onChange: props.onChange,
   });
 
   return createWidget({
@@ -112,7 +123,7 @@ export function SliderBar(props: SliderBarProps): ReconcilableWidget {
       height: isHorizontal ? 24 : 200,
       // The control paints its own track — the box itself is hit space.
       backgroundColor: "transparent",
-      focusable: focusableWhen(props.disabled),
+      focusable: focusableWhen(!props.disabled),
       pointerEvents: PointerEvents.Auto,
       ...style,
       _focus: focusStyle(style),
@@ -132,6 +143,10 @@ export function SliderBar(props: SliderBarProps): ReconcilableWidget {
       onPointerMove: (payload) => {
         onPointerMove?.(payload);
         drag.onPointerMove(payload);
+      },
+      onKeyDown: (payload) => {
+        onKeyDown?.(payload);
+        keyHandler(payload);
       },
     },
   });

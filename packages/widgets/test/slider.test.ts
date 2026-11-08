@@ -1,11 +1,28 @@
 /**
- * SliderBar — paint structure and the drag contract through the real
- * dispatcher: track-press jumps, handle-press drags, hover never mutates,
- * step snapping, and the disabled no-op.
+ * SliderBar — paint structure, the drag contract through the real
+ * dispatcher (track-press jumps, handle-press drags, hover never
+ * mutates, step snapping, disabled no-op), and the keyboard contract
+ * (arrows step, Shift ×10, Home/End) on the focused slider.
  */
-import { MouseButton, Palette, StateStore } from "@vulcania/core";
-import { PointerDispatcher, PointerInputKind } from "@vulcania/interactions";
-import { type LayoutContext, layoutFlex, type LayoutNode } from "@vulcania/layout";
+import {
+  KeyCode,
+  KeyModifiers,
+  MouseButton,
+  Palette,
+  StateStore,
+} from "@vulcania/core";
+import {
+  FocusDispatcher,
+  type KeyboardInputEvent,
+  KeyboardInputKind,
+  PointerDispatcher,
+  PointerInputKind,
+} from "@vulcania/interactions";
+import {
+  type LayoutContext,
+  layoutFlex,
+  type LayoutNode,
+} from "@vulcania/layout";
 import { parseColor } from "@vulcania/paint";
 import { describe, expect, test } from "bun:test";
 import {
@@ -26,17 +43,22 @@ interface Harness {
     }[]
   ): void;
   render(widget: Parameters<typeof renderHeadless>[0]): void;
+  /** Focus the slider (click-to-focus) at a point on it. */
+  focus(x: number, y: number): void;
+  key(key: KeyCode, modifiers?: KeyModifiers, repeat?: boolean): void;
 }
 
 function setup(widget: Parameters<typeof renderHeadless>[0]): Harness {
   const stateStore = new StateStore();
   const reconciler = new Reconciler(stateStore);
   const dispatcher = new PointerDispatcher();
+  const focus = new FocusDispatcher();
 
   const layoutIndex = new Map<number, LayoutNode>();
+  const focusableNodes: LayoutNode[] = [];
   const ctx: LayoutContext = {
     layoutIndex,
-    focusableNodes: [],
+    focusableNodes,
     scrollOffsetOf: () => ({ x: 0, y: 0 }),
     getStableId: reconciler.getStableId,
     measureText: (text) => ({ width: text.length * 8, height: 18 }),
@@ -64,6 +86,39 @@ function setup(widget: Parameters<typeof renderHeadless>[0]): Harness {
         availableWidth: 400,
         availableHeight: 300,
         ctx,
+      });
+    },
+    focus(x, y) {
+      const down = {
+        kind: PointerInputKind.Down,
+        x,
+        y,
+        button: MouseButton.Left,
+      };
+      dispatcher.dispatch({ events: [down], root, layoutIndex });
+      focus.dispatch({
+        pointerEvents: [down],
+        keyboardEvents: [],
+        root,
+        layoutIndex,
+        focusableNodes,
+        stateStore,
+      });
+    },
+    key(key, modifiers = KeyModifiers.None, repeat = false) {
+      const event = {
+        kind: KeyboardInputKind.KeyDown,
+        key,
+        modifiers,
+        repeat,
+      } as KeyboardInputEvent;
+      focus.dispatch({
+        pointerEvents: [],
+        keyboardEvents: [event],
+        root,
+        layoutIndex,
+        focusableNodes,
+        stateStore,
       });
     },
   };
@@ -284,5 +339,161 @@ describe("SliderBar drag", () => {
     );
     harness.fire([ev(PointerInputKind.Move, 192, 12)]);
     expect(value).toBe(100);
+  });
+});
+
+describe("SliderBar keyboard", () => {
+  /** Controlled slider + harness; the value lives in the closure. */
+  function keyboardHarness(
+    initial: number,
+    disabled = false
+  ): {
+    h: Harness;
+    value: () => number;
+    widget: () => Parameters<typeof renderHeadless>[0];
+  } {
+    let current = initial;
+    const widget = (): Parameters<typeof renderHeadless>[0] =>
+      SliderBar({
+        value: current,
+        min: 0,
+        max: 100,
+        disabled,
+        style: { width: 200, height: 24 },
+        onChange: (next) => {
+          current = next;
+        },
+      });
+    return { h: setup(widget()), value: () => current, widget };
+  }
+
+  test("arrows step ±1 — Left/Down decrement, Right/Up increment", () => {
+    const { h, value, widget } = keyboardHarness(50);
+    const handleCenter = 8 + (50 / 100) * (200 - 16);
+
+    h.focus(handleCenter, 12);
+    h.key(KeyCode.Right);
+    h.render(widget());
+    expect(value()).toBe(51);
+
+    h.key(KeyCode.Up);
+    h.render(widget());
+    expect(value()).toBe(52);
+
+    h.key(KeyCode.Left);
+    h.render(widget());
+    expect(value()).toBe(51);
+
+    h.key(KeyCode.Down);
+    h.render(widget());
+    expect(value()).toBe(50);
+  });
+
+  test("Shift ×10 — coarse steps", () => {
+    const { h, value, widget } = keyboardHarness(50);
+    h.focus(8 + (50 / 100) * 184, 12);
+
+    h.key(KeyCode.Right, KeyModifiers.Shift);
+    h.render(widget());
+    expect(value()).toBe(60);
+
+    h.key(KeyCode.Left, KeyModifiers.Shift);
+    h.render(widget());
+    expect(value()).toBe(50);
+  });
+
+  test("Home/End jump to min/max", () => {
+    const { h, value, widget } = keyboardHarness(50);
+    h.focus(8 + (50 / 100) * 184, 12);
+
+    h.key(KeyCode.End);
+    h.render(widget());
+    expect(value()).toBe(100);
+
+    h.key(KeyCode.Home);
+    h.render(widget());
+    expect(value()).toBe(0);
+  });
+
+  test("clamps at the bounds — no-op beyond them", () => {
+    const { h, value, widget } = keyboardHarness(100);
+    h.focus(8 + (100 / 100) * 184, 12);
+
+    h.key(KeyCode.Right);
+    h.key(KeyCode.Up);
+    h.render(widget());
+    expect(value()).toBe(100);
+
+    h.key(KeyCode.Home);
+    h.render(widget());
+    h.key(KeyCode.Left);
+    h.key(KeyCode.Down);
+    h.render(widget());
+    expect(value()).toBe(0);
+  });
+
+  test("step scales the delta", () => {
+    let current = 10;
+    const widget = (): Parameters<typeof renderHeadless>[0] =>
+      SliderBar({
+        value: current,
+        min: 0,
+        max: 100,
+        step: 25,
+        style: { width: 200, height: 24 },
+        onChange: (next) => {
+          current = next;
+        },
+      });
+    const h = setup(widget());
+    h.focus(8 + (10 / 100) * 184, 12);
+
+    h.key(KeyCode.Right);
+    h.render(widget());
+    expect(current).toBe(35);
+  });
+
+  test("keys only reach a focused slider", () => {
+    const { h, value, widget } = keyboardHarness(50);
+
+    // No focus() — the key event has no focused target.
+    h.key(KeyCode.Right);
+    h.render(widget());
+    expect(value()).toBe(50);
+  });
+
+  test("disabled slider ignores keys", () => {
+    const { h, value, widget } = keyboardHarness(50, true);
+    // focusableWhen(disabled) → not focusable, so focus() won't grab it;
+    // keys route nowhere regardless.
+    h.focus(104, 12);
+    h.key(KeyCode.Right);
+    h.render(widget());
+    expect(value()).toBe(50);
+  });
+
+  test("user onKeyDown still receives the payload", () => {
+    const payloads: Array<{ key: KeyCode }> = [];
+    let current = 50;
+    const widget = (): Parameters<typeof renderHeadless>[0] =>
+      SliderBar({
+        value: current,
+        min: 0,
+        max: 100,
+        style: { width: 200, height: 24 },
+        onKeyDown: (payload) => {
+          payloads.push({ key: payload.key as KeyCode });
+        },
+        onChange: (next) => {
+          current = next;
+        },
+      });
+    const h = setup(widget());
+    h.focus(8 + (50 / 100) * 184, 12);
+
+    h.key(KeyCode.Right);
+    h.render(widget());
+    expect(current).toBe(51);
+    expect(payloads).toEqual([{ key: KeyCode.Right }]);
   });
 });

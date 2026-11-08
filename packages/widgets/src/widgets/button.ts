@@ -34,7 +34,7 @@ export function Button(props: ButtonProps): ReconcilableWidget {
       borderWidth: Metrics.borderWidth,
       borderColor: Palette.border,
       backgroundColor: Palette.surface,
-      focusable: focusableWhen(disabled),
+      focusable: focusableWhen(!disabled),
       ...style,
       // Baked pseudo-states; user overrides win via spread order.
       _hover: {

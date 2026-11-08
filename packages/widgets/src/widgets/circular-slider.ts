@@ -16,6 +16,7 @@ import { clamp } from "@vulcania/layout";
 import { PointerEvents, WidgetType } from "@vulcania/layout";
 import { createWidget } from "../create-widget.ts";
 import { createDragValueHandler } from "./slider/drag.ts";
+import { createSliderKeyHandler } from "./slider/keyboard.ts";
 import {
   DEFAULT_CIRCULAR_SIZE,
   DEFAULT_CIRCULAR_THICKNESS,
@@ -39,6 +40,7 @@ export function CircularSlider(props: CircularSliderProps): ReconcilableWidget {
     onClick,
     onPointerDown,
     onPointerMove,
+    onKeyDown,
     ...handlers
   } = props;
 
@@ -71,6 +73,17 @@ export function CircularSlider(props: CircularSliderProps): ReconcilableWidget {
         size,
         thickness,
       }),
+  });
+
+  // flying-pan parity: the circular slider reuses the single slider's
+  // keyboard handler — arrows step the value, geometry irrelevant.
+  const keyHandler = createSliderKeyHandler({
+    disabled: props.disabled,
+    value: props.value,
+    min,
+    max,
+    step: props.step,
+    onChange: props.onChange,
   });
 
   return createWidget({
@@ -114,7 +127,7 @@ export function CircularSlider(props: CircularSliderProps): ReconcilableWidget {
       height: size,
       // The control paints its own ring — the box is hit space only.
       backgroundColor: "transparent",
-      focusable: focusableWhen(props.disabled),
+      focusable: focusableWhen(!props.disabled),
       pointerEvents: PointerEvents.Auto,
       ...style,
       _focus: focusStyle(style),
@@ -134,6 +147,10 @@ export function CircularSlider(props: CircularSliderProps): ReconcilableWidget {
       onPointerMove: (payload) => {
         onPointerMove?.(payload);
         drag.onPointerMove(payload);
+      },
+      onKeyDown: (payload) => {
+        onKeyDown?.(payload);
+        keyHandler(payload);
       },
     },
   });

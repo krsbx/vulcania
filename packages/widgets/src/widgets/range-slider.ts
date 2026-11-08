@@ -21,6 +21,7 @@ import {
 import { createWidget } from "../create-widget.ts";
 import { createRangeDragValueHandler } from "./slider/drag.ts";
 import { HANDLE_SIZE, TRACK_THICKNESS } from "./slider/geometry.ts";
+import { createRangeSliderKeyHandler } from "./slider/keyboard.ts";
 import type { RangeSliderProps } from "./slider/types.ts";
 
 export type { RangeSliderProps };
@@ -35,6 +36,7 @@ export function RangeSlider(props: RangeSliderProps): ReconcilableWidget {
     onClick,
     onPointerDown,
     onPointerMove,
+    onKeyDown,
     ...handlers
   } = props;
 
@@ -49,6 +51,15 @@ export function RangeSlider(props: RangeSliderProps): ReconcilableWidget {
     max,
     step: props.step,
     isVertical: !isHorizontal,
+    onChange: props.onChange,
+  });
+
+  const keyHandler = createRangeSliderKeyHandler({
+    disabled: props.disabled,
+    value: props.value,
+    min,
+    max,
+    step: props.step,
     onChange: props.onChange,
   });
 
@@ -91,7 +102,7 @@ export function RangeSlider(props: RangeSliderProps): ReconcilableWidget {
       height: isHorizontal ? 24 : 200,
       // The control paints its own track — the box itself is hit space.
       backgroundColor: "transparent",
-      focusable: focusableWhen(props.disabled),
+      focusable: focusableWhen(!props.disabled),
       pointerEvents: PointerEvents.Auto,
       ...style,
       _focus: focusStyle(style),
@@ -111,6 +122,10 @@ export function RangeSlider(props: RangeSliderProps): ReconcilableWidget {
       onPointerMove: (payload) => {
         onPointerMove?.(payload);
         drag.onPointerMove(payload);
+      },
+      onKeyDown: (payload) => {
+        onKeyDown?.(payload);
+        keyHandler(payload);
       },
     },
   });

@@ -65,7 +65,7 @@ export function Checkbox(props: CheckboxProps): ReconcilableWidget {
       borderWidth: Metrics.borderWidth,
       borderColor: Palette.border,
       backgroundColor: Palette.surface,
-      focusable: focusableWhen(disabled),
+      focusable: focusableWhen(!disabled),
       ...style,
       _checked: {
         borderColor: Palette.accent,
