@@ -15,6 +15,7 @@ import {
 import { paintInlineValueLabel } from "../label/paint.ts";
 import { HANDLE_SIZE, TRACK_THICKNESS } from "./geometry.ts";
 import { paintSliderHandle } from "./slider-handle.ts";
+import { resolveSliderValue } from "./value.ts";
 import { paintSliderMarks } from "./slider-marks.ts";
 import type { SliderBarProps } from "./types.ts";
 
@@ -22,7 +23,7 @@ export const paintSliderBar: WidgetPainter = (ctx, node) => {
   const props = propsOf<SliderBarProps>(node.widget);
   const min = props.min ?? 0;
   const max = props.max ?? 100;
-  const value = props.value ?? min;
+  const value = resolveSliderValue(ctx.stateStore, node.stableId, props);
   const ratio = valueToRatio({ value, min, max });
   const isVertical = props.orientation === ProgressBarOrientation.Vertical;
 

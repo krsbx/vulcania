@@ -9,6 +9,7 @@ import {
   KeyModifiers,
   MouseButton,
   Palette,
+  STATES_NONE,
   StateStore,
 } from "@vulcania/core";
 import {
@@ -23,14 +24,16 @@ import {
   layoutFlex,
   type LayoutNode,
 } from "@vulcania/layout";
-import { parseColor } from "@vulcania/paint";
+import { paintTree, parseColor } from "@vulcania/paint";
 import { describe, expect, test } from "bun:test";
 import {
   type PaintOp,
   PaintOpKind,
   Reconciler,
   renderHeadless,
+  resolveSliderValue,
   SliderBar,
+  widgetPainters,
 } from "../src/index.ts";
 
 interface Harness {
@@ -46,6 +49,11 @@ interface Harness {
   /** Focus the slider (click-to-focus) at a point on it. */
   focus(x: number, y: number): void;
   key(key: KeyCode, modifiers?: KeyModifiers, repeat?: boolean): void;
+  /** The dispatch store — uncontrolled state lives here. */
+  store: StateStore;
+  /** Paint the CURRENT tree with the harness store (the real-app
+   *  contract: dispatch and paint share one store). */
+  paintOps(): PaintOp[];
 }
 
 function setup(widget: Parameters<typeof renderHeadless>[0]): Harness {
@@ -76,7 +84,8 @@ function setup(widget: Parameters<typeof renderHeadless>[0]): Harness {
 
   return {
     fire(events) {
-      dispatcher.dispatch({ events, root, layoutIndex });
+      // AppWindow threads the store into pointer dispatch too.
+      dispatcher.dispatch({ events, root, layoutIndex, stateStore });
     },
     render(next) {
       root = layoutFlex({
@@ -120,6 +129,32 @@ function setup(widget: Parameters<typeof renderHeadless>[0]): Harness {
         focusableNodes,
         stateStore,
       });
+    },
+    store: stateStore,
+    paintOps() {
+      const ops: PaintOp[] = [];
+      const gpu = {
+        fillRect: (o: Record<string, unknown>) =>
+          ops.push({ op: PaintOpKind.Rect, ...o } as PaintOp),
+        fillRoundedRect: (o: Record<string, unknown>) =>
+          ops.push({ op: PaintOpKind.RoundedRect, ...o } as PaintOp),
+        fillArc: () => {},
+        fillRing: () => {},
+        drawTexture: () => {},
+        pushClip: () => {},
+        popClip: () => {},
+      };
+      paintTree(
+        {
+          gpu: gpu as never,
+          font: { draw: () => {} },
+          statesOf: () => STATES_NONE,
+          stateStore,
+          painters: widgetPainters,
+        },
+        root
+      );
+      return ops;
     },
   };
 }
@@ -495,5 +530,120 @@ describe("SliderBar keyboard", () => {
     h.render(widget());
     expect(current).toBe(51);
     expect(payloads).toEqual([{ key: KeyCode.Right }]);
+  });
+});
+describe("SliderBar uncontrolled", () => {
+  /** defaultValue-driven slider; the value lives ONLY in the store. */
+  function uncontrolledHarness(initial: number): {
+    h: Harness;
+    changes: number[];
+    storeValue: () => number;
+  } {
+    const changes: number[] = [];
+    const widget = (): Parameters<typeof renderHeadless>[0] =>
+      SliderBar({
+        defaultValue: initial,
+        min: 0,
+        max: 100,
+        style: { width: 200, height: 24 },
+        onChange: (next) => {
+          changes.push(next);
+        },
+      });
+    // The uncontrolled slider is the tree root → stableId 1 (the
+    // reconciler's first allocation).
+    const h = setup(widget());
+    return {
+      h,
+      changes,
+      storeValue: () =>
+        resolveSliderValue(h.store, 1, { defaultValue: initial, min: 0 }),
+    };
+  }
+
+  test("drag moves the store — paint follows with NO parent re-render", () => {
+    const { h, storeValue, changes } = uncontrolledHarness(40);
+
+    // Track press jumps + captured move + release — and NO render()
+    // anywhere: the uncontrolled slider must move and stick on its own.
+    h.fire([
+      ev(PointerInputKind.Down, 104, 12),
+      ev(PointerInputKind.Move, 150, 12),
+      ev(PointerInputKind.Up, 150, 12),
+    ]);
+
+    // No step → raw pointer-derived floats (52.17 at the press, 77.17
+    // at the move) — the uncontrolled path commits exactly what the
+    // pointer says.
+    expect(changes).toHaveLength(2);
+    expect(changes[0]).toBeCloseTo(((104 - 8) / 184) * 100, 1);
+    expect(changes[1]).toBeCloseTo(((150 - 8) / 184) * 100, 1);
+    expect(storeValue()).toBeCloseTo(((150 - 8) / 184) * 100, 1);
+
+    // Paint with the SAME store (the real-app contract) — the handle
+    // lands at the new ratio.
+    const handleSurface = h.paintOps().find(
+      (op) =>
+        (op.op === PaintOpKind.Rect || op.op === PaintOpKind.RoundedRect) &&
+        (op as { w: number }).w === 16
+    ) as { x: number } | undefined;
+    expect(handleSurface?.x).toBeCloseTo(((150 - 8) / 184) * (200 - 16), 1);
+  });
+
+  test("keyboard moves the store too", () => {
+    const { h, storeValue } = uncontrolledHarness(40);
+    h.focus(8 + (40 / 100) * 184, 12);
+
+    h.key(KeyCode.Right);
+    expect(storeValue()).toBe(41);
+  });
+
+  test("controlled value wins over defaultValue", () => {
+    let current = 90;
+    const changes: number[] = [];
+    const widget = (): Parameters<typeof renderHeadless>[0] =>
+      SliderBar({
+        value: current,
+        defaultValue: 10,
+        min: 0,
+        max: 100,
+        style: { width: 200, height: 24 },
+        onChange: (next) => {
+          current = next;
+          changes.push(next);
+        },
+      });
+    const h = setup(widget());
+
+    // Track press at 25% — controlled branch: onChange(25) commits via
+    // the parent; the store is never written.
+    h.fire([ev(PointerInputKind.Down, 8 + (25 / 100) * 184, 12)]);
+    h.render(widget());
+    expect(current).toBe(25);
+    expect(changes).toEqual([25]);
+
+    // The defaultValue seed never entered the store (controlled mode
+    // reads props first — the store stays empty until a controlled
+    // write, which never happens).
+    expect(h.store["stateFor"] === undefined).toBe(false);
+    expect(resolveSliderValue(h.store, 1, { value: 90, min: 0 })).toBe(90);
+  });
+
+  test("defaultValue paints at the seed — store-less headless", () => {
+    const frame = renderHeadless(
+      SliderBar({
+        defaultValue: 40,
+        min: 0,
+        max: 100,
+        style: { width: 200, height: 24 },
+      }),
+      { width: 400, height: 300 }
+    );
+    const handleSurface = frame.ops.find(
+      (op) =>
+        (op.op === PaintOpKind.Rect || op.op === PaintOpKind.RoundedRect) &&
+        (op as { w: number }).w === 16
+    ) as { x: number } | undefined;
+    expect(handleSurface?.x).toBe((40 / 100) * (200 - 16));
   });
 });

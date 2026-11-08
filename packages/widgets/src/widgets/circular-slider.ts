@@ -4,6 +4,7 @@
  * press on the handle dot drags, captured moves apply. Controlled-only
  * (uncontrolled lands with the state milestone).
  */
+import type { ReconcilableWidget } from "@vulcania/core";
 import {
   disabledStyle,
   focusableWhen,
@@ -11,12 +12,9 @@ import {
   Metrics,
   Palette,
 } from "@vulcania/core";
-import type { ReconcilableWidget } from "@vulcania/core";
-import { clamp } from "@vulcania/layout";
-import { PointerEvents, WidgetType } from "@vulcania/layout";
+import { clamp, PointerEvents, WidgetType } from "@vulcania/layout";
 import { createWidget } from "../create-widget.ts";
 import { createDragValueHandler } from "./slider/drag.ts";
-import { createSliderKeyHandler } from "./slider/keyboard.ts";
 import {
   DEFAULT_CIRCULAR_SIZE,
   DEFAULT_CIRCULAR_THICKNESS,
@@ -24,9 +22,10 @@ import {
   isOnCircularHandle,
   pointerToAngleValue,
   resolveGeometry,
-  sliderValue,
 } from "./slider/geometry.ts";
+import { createSliderKeyHandler } from "./slider/keyboard.ts";
 import type { CircularSliderProps } from "./slider/types.ts";
+import { resolveSliderValue } from "./slider/value.ts";
 
 export type { CircularSliderProps };
 
@@ -52,6 +51,7 @@ export function CircularSlider(props: CircularSliderProps): ReconcilableWidget {
   const drag = createDragValueHandler({
     disabled: props.disabled,
     value: props.value,
+    defaultValue: props.defaultValue,
     onChange: props.onChange,
     positionToValue: (x, y, node) =>
       clamp({
@@ -64,12 +64,12 @@ export function CircularSlider(props: CircularSliderProps): ReconcilableWidget {
         min,
         max,
       }),
-    onHandle: (x, y, node) =>
+    onHandle: (payload) =>
       isOnCircularHandle({
-        x,
-        y,
-        geo: resolveGeometry(props, node),
-        value: sliderValue(props),
+        x: payload.x,
+        y: payload.y,
+        geo: resolveGeometry(props, payload.node),
+        value: resolveSliderValue(payload.stateStore, payload.stableId, props),
         size,
         thickness,
       }),
@@ -80,6 +80,7 @@ export function CircularSlider(props: CircularSliderProps): ReconcilableWidget {
   const keyHandler = createSliderKeyHandler({
     disabled: props.disabled,
     value: props.value,
+    defaultValue: props.defaultValue,
     min,
     max,
     step: props.step,
@@ -90,6 +91,7 @@ export function CircularSlider(props: CircularSliderProps): ReconcilableWidget {
     type: WidgetType.CircularSlider,
     props: {
       value: props.value,
+      defaultValue: props.defaultValue,
       min,
       max,
       step: props.step,

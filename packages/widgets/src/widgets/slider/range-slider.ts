@@ -15,13 +15,18 @@ import { paintInlineValueLabel } from "../label/paint.ts";
 import { HANDLE_SIZE, TRACK_THICKNESS } from "./geometry.ts";
 import { paintSliderHandle } from "./slider-handle.ts";
 import { paintSliderMarks } from "./slider-marks.ts";
+import { resolveRangeSliderState } from "./value.ts";
 import type { RangeSliderProps } from "./types.ts";
 
 export const paintRangeSlider: WidgetPainter = (ctx, node) => {
   const props = propsOf<RangeSliderProps>(node.widget);
   const min = props.min ?? 0;
   const max = props.max ?? 100;
-  const [low, high] = props.value ?? [min, max];
+  const { low, high } = resolveRangeSliderState(
+    ctx.stateStore,
+    node.stableId,
+    props
+  );
   const lowRatio = valueToRatio({ value: low, min, max });
   const highRatio = valueToRatio({ value: high, min, max });
   const isVertical = props.orientation === ProgressBarOrientation.Vertical;

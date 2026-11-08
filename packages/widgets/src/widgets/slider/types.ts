@@ -15,6 +15,8 @@ export interface SliderMark {
 export interface SliderProps extends BaseWidgetProps {
   /** Controlled value — the parent re-renders on change. */
   value?: number;
+  /** Uncontrolled seed — store-backed; `value` wins. */
+  defaultValue?: number;
   min?: number;
   max?: number;
   /** Snap granularity; raw values round to the nearest step. */
@@ -45,16 +47,17 @@ export interface SliderBarProps extends SliderProps {
 
 /**
  * RangeSlider — dual-handle range selection (flying-pan's
- * RangeSliderBar). Controlled-only like SliderBar; deliberate
- * divergences from flying-pan: no `defaultValue` (no uncontrolled
- * mode), no `showValue` (flying-pan accepts it and never renders it).
+ * RangeSliderBar). Deliberate divergence from flying-pan: no
+ * `showValue` (flying-pan accepts it and never renders it).
  */
 export interface RangeSliderProps extends Omit<
   SliderProps,
-  "value" | "onChange" | "showValue"
+  "value" | "defaultValue" | "onChange" | "showValue"
 > {
   /** Controlled [low, high] — handles can meet but never cross. */
   value?: [number, number];
+  /** Uncontrolled seed — store-backed. */
+  defaultValue?: [number, number];
   onChange?(value: [number, number]): void;
   orientation?: ProgressBarOrientation;
   /** Tick marks at values, with optional labels. */

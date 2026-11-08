@@ -4,24 +4,30 @@
  * the value, press on the handle drags from the current value, captured
  * moves apply, hover moves never mutate.
  *
- * `lastApplied` dedupes event-fed moves that recompute the same position
- * several times before the app re-renders (the stale controlled `value`
- * comparison alone can't). One instance per descriptor — the state dies
- * with the rebuild, where the fresh controlled value takes over.
+ * Value source is `resolveSliderValue`: controlled `value` wins;
+ * otherwise the value is store-backed (defaultValue seeds it, drag
+ * writes it) — uncontrolled sliders move and stick with no parent
+ * state. `lastApplied` dedupes event-fed moves that recompute the same
+ * position several times before the store/paint catches up. One
+ * instance per descriptor — the closure state dies with the rebuild.
  */
 import type { PointerPayload } from "@vulcania/core";
 import { valueToRatio } from "@vulcania/layout";
 import { HANDLE_SIZE, isOnBarHandle, pointerToValue } from "./geometry.ts";
+import { resolveSliderValue } from "./value.ts";
 
 export interface DragValueHandlerOptions {
   disabled?: boolean;
-  /** Currently committed controlled value. */
+  /** Controlled value — wins over defaultValue. */
   value: number | undefined;
+  /** Uncontrolled seed — store-backed. */
+  defaultValue?: number;
   onChange?(value: number): void;
   /** Map a pointer position to the next (unclamped-by-caller) value. */
   positionToValue(x: number, y: number, node: PointerPayload["node"]): number;
-  /** Is the pointer on the handle? False = track press → jump. */
-  onHandle(x: number, y: number, node: PointerPayload["node"]): boolean;
+  /** Is the pointer on the handle (live value at event time)? False =
+   *  track press → jump. */
+  onHandle(payload: PointerPayload): boolean;
 }
 
 export interface DragValueHandler {
@@ -39,8 +45,24 @@ export function createDragValueHandler(
     if (options.disabled) return;
 
     const next = options.positionToValue(payload.x, payload.y, payload.node);
-    if (next === (lastApplied ?? options.value)) return;
+
+    // Controlled: dedupe against the descriptor's value; the parent
+    // re-render commits. Uncontrolled: dedupe against the store-backed
+    // value and write it — no parent state involved.
+    const current = resolveSliderValue(
+      payload.stateStore,
+      payload.stableId,
+      options
+    );
+    if (next === (lastApplied ?? current)) return;
     lastApplied = next;
+
+    if (options.value === undefined) {
+      payload.stateStore?.setState({
+        stableId: payload.stableId,
+        value: next,
+      });
+    }
     options.onChange?.(next);
   };
 
@@ -48,14 +70,14 @@ export function createDragValueHandler(
     /** Track click (not on the handle) jumps straight to the value. */
     onClick: (payload) => {
       if (options.disabled) return;
-      if (!options.onHandle(payload.x, payload.y, payload.node)) {
+      if (!options.onHandle(payload)) {
         apply(payload);
       }
     },
     /** Track press jumps; handle press drags from current; capture on. */
     onPointerDown: (payload) => {
       if (options.disabled) return;
-      if (!options.onHandle(payload.x, payload.y, payload.node)) {
+      if (!options.onHandle(payload)) {
         apply(payload);
       }
       payload.capturePointer?.();
@@ -77,8 +99,10 @@ export type RangeHandle = (typeof RangeHandle)[keyof typeof RangeHandle];
 
 export interface RangeDragValueHandlerOptions {
   disabled?: boolean;
-  /** Currently committed controlled [low, high]. */
+  /** Controlled [low, high] — wins over defaultValue. */
   value: [number, number] | undefined;
+  /** Uncontrolled seed — store-backed. */
+  defaultValue?: [number, number];
   min: number;
   max: number;
   step?: number;
@@ -94,12 +118,12 @@ export interface RangeDragValueHandlerOptions {
  * handle jumps to the pointer. Drags clamp so handles can meet but
  * never cross.
  *
- * `activeHandle` rides the StateStore under the stableId — flying-pan
- * persists it the same way — because a controlled app rebuilds the
- * descriptor on every change, and a closure alone would forget the
- * grabbed handle mid-drag (the drag would freeze until release). The
- * closure value is the fallback for stateless callers (tests). Same
- * per-descriptor lifecycle for `lastApplied` as the single handler.
+ * The whole state rides ONE combined store object under the stableId —
+ * {low, high, activeHandle} (flying-pan's RangeSliderState) — via
+ * resolveRangeSliderState. A controlled app rebuilds the descriptor on
+ * every change and the closure would forget the grabbed handle
+ * mid-drag; the store survives. The closure values are the fallback
+ * for stateless callers (tests).
  */
 export function createRangeDragValueHandler(
   options: RangeDragValueHandlerOptions
@@ -107,24 +131,53 @@ export function createRangeDragValueHandler(
   let activeHandle: RangeHandle | null = null;
   let lastApplied: [number, number] | null = null;
 
-  const committed = (): [number, number] =>
-    options.value ?? [options.min, options.max];
-
   const isVertical = options.isVertical;
 
-  const rememberedHandle = (payload: PointerPayload): RangeHandle | null => {
-    const stored = payload.stateStore?.stateFor<RangeHandle | null>({
-      stableId: payload.stableId,
-      initial: null,
-    });
-    return stored ?? activeHandle;
+  /** Live [low, high] — controlled props or the store-backed state. */
+  const committed = (payload: PointerPayload): [number, number] => {
+    const state = resolveRangeSliderStateInternal(payload);
+    return [state.low, state.high];
   };
+
+  const resolveRangeSliderStateInternal = (
+    payload: PointerPayload
+  ): { low: number; high: number; activeHandle: RangeHandle } => {
+    const state = payload.stateStore?.stateFor<{
+      low: number;
+      high: number;
+      activeHandle: RangeHandle;
+    } | null>({ stableId: payload.stableId, initial: null });
+
+    if (options.value !== undefined) {
+      // Controlled: values from props; keep the grabbed handle.
+      return {
+        low: options.value[0],
+        high: options.value[1],
+        activeHandle: state?.activeHandle ?? activeHandle ?? RangeHandle.High,
+      };
+    }
+
+    const [seedLow, seedHigh] = options.defaultValue ?? [
+      options.min,
+      options.max,
+    ];
+    return (
+      state ?? {
+        low: seedLow,
+        high: seedHigh,
+        activeHandle: activeHandle ?? RangeHandle.High,
+      }
+    );
+  };
+
+  const rememberedHandle = (payload: PointerPayload): RangeHandle | null =>
+    resolveRangeSliderStateInternal(payload).activeHandle ?? null;
 
   /** Handle rect hit first; else nearest handle by pixel (tie → low). */
   const pick = (
     payload: PointerPayload
   ): { handle: RangeHandle; onHandle: boolean } => {
-    const [low, high] = committed();
+    const [low, high] = committed(payload);
     const ratio = (v: number): number =>
       valueToRatio({ value: v, min: options.min, max: options.max });
 
@@ -187,15 +240,24 @@ export function createRangeDragValueHandler(
       step: options.step,
     });
 
-    const [low, high] = committed();
+    const [low, high] = committed(payload);
     // Handles can meet but never cross.
     const next: [number, number] =
       handle === RangeHandle.Low
         ? [Math.min(raw, high), high]
         : [low, Math.max(raw, low)];
-    const prev = lastApplied ?? committed();
+    const prev = lastApplied ?? committed(payload);
     if (next[0] === prev[0] && next[1] === prev[1]) return;
     lastApplied = next;
+
+    if (options.value === undefined) {
+      // Uncontrolled: persist the combined state object.
+      const state = resolveRangeSliderStateInternal(payload);
+      payload.stateStore?.setState({
+        stableId: payload.stableId,
+        value: { ...state, low: next[0], high: next[1] },
+      });
+    }
     options.onChange?.(next);
   };
 
@@ -209,10 +271,12 @@ export function createRangeDragValueHandler(
       if (options.disabled) return;
       const picked = pick(payload);
       activeHandle = picked.handle;
-      // Survives the rebuild every controlled change triggers.
+      // The grabbed handle survives the rebuild every controlled
+      // change triggers — persisted as part of the combined object.
+      const state = resolveRangeSliderStateInternal(payload);
       payload.stateStore?.setState({
         stableId: payload.stableId,
-        value: picked.handle,
+        value: { ...state, activeHandle: picked.handle },
       });
       // Handle press drags from the current value; track press jumps.
       if (!picked.onHandle) apply(payload, picked.handle);

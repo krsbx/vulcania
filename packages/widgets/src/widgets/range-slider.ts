@@ -47,6 +47,7 @@ export function RangeSlider(props: RangeSliderProps): ReconcilableWidget {
   const drag = createRangeDragValueHandler({
     disabled: props.disabled,
     value: props.value,
+    defaultValue: props.defaultValue,
     min,
     max,
     step: props.step,
@@ -57,6 +58,7 @@ export function RangeSlider(props: RangeSliderProps): ReconcilableWidget {
   const keyHandler = createRangeSliderKeyHandler({
     disabled: props.disabled,
     value: props.value,
+    defaultValue: props.defaultValue,
     min,
     max,
     step: props.step,
@@ -67,6 +69,7 @@ export function RangeSlider(props: RangeSliderProps): ReconcilableWidget {
     type: WidgetType.RangeSlider,
     props: {
       value: props.value,
+      defaultValue: props.defaultValue,
       min,
       max,
       step: props.step,
