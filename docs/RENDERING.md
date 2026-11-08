@@ -97,7 +97,10 @@ order: **shadow → border → background → widget content → children**:
 Labels paint one run per line when layout wrapped them
 (`node.textLayout.lines`, stepped by the recorded `lineAdvance`);
 unwrapped labels are a single run. The wrap itself is layout's job —
-see LAYOUT.md.
+see LAYOUT.md. `textAlign` aligns each run within the node's box
+(per line when wrapped): labels default to left (web body-text
+semantics); inline value labels (progress/meter/slider) default to
+center and take `labelStyle.textAlign`.
 
 ## Text
 

@@ -36,8 +36,12 @@ export {
   pointerToAngleValue,
   pointerToValue,
   resolveGeometry,
-  sliderValue,
 } from "./widgets/slider/geometry.ts";
+export {
+  type RangeSliderState,
+  resolveRangeSliderState,
+  resolveSliderValue,
+} from "./widgets/slider/value.ts";
 export { type SliderMark } from "./widgets/slider/types.ts";
 export type {
   CircularSliderProps,

@@ -1,9 +1,11 @@
 /**
- * SliderBar — controlled drag slider. Pointer behavior ported from
- * flying-pan's widget/slider: press on the track jumps, press on the
- * handle drags from the current value, moves apply while captured.
- * Uncontrolled StateStore mode is deferred to the state milestone.
+ * SliderBar — drag slider, controlled or uncontrolled. Pointer
+ * behavior ported from flying-pan's widget/slider: press on the track
+ * jumps, press on the handle drags from the current value, moves apply
+ * while captured. `value` (controlled) wins over `defaultValue`
+ * (store-backed — the handle moves and sticks with no parent state).
  */
+import type { ReconcilableWidget } from "@vulcania/core";
 import {
   disabledStyle,
   focusableWhen,
@@ -11,7 +13,6 @@ import {
   Metrics,
   Palette,
 } from "@vulcania/core";
-import type { ReconcilableWidget } from "@vulcania/core";
 import {
   PointerEvents,
   ProgressBarOrientation,
@@ -24,10 +25,11 @@ import {
   HANDLE_SIZE,
   isOnBarHandle,
   pointerToValue,
-  sliderValue,
   TRACK_THICKNESS,
 } from "./slider/geometry.ts";
+import { createSliderKeyHandler } from "./slider/keyboard.ts";
 import type { SliderBarProps } from "./slider/types.ts";
+import { resolveSliderValue } from "./slider/value.ts";
 
 export type { SliderBarProps };
 
@@ -41,6 +43,7 @@ export function SliderBar(props: SliderBarProps): ReconcilableWidget {
     onClick,
     onPointerDown,
     onPointerMove,
+    onKeyDown,
     ...handlers
   } = props;
 
@@ -51,6 +54,7 @@ export function SliderBar(props: SliderBarProps): ReconcilableWidget {
   const drag = createDragValueHandler({
     disabled: props.disabled,
     value: props.value,
+    defaultValue: props.defaultValue,
     onChange: props.onChange,
     positionToValue: (x, y, node) =>
       pointerToValue({
@@ -62,20 +66,39 @@ export function SliderBar(props: SliderBarProps): ReconcilableWidget {
         max,
         step: props.step,
       }),
-    onHandle: (x, y, node) =>
+    onHandle: (payload) =>
       isOnBarHandle({
-        x,
-        y,
-        node,
-        ratio: valueToRatio({ value: sliderValue(props), min, max }),
+        x: payload.x,
+        y: payload.y,
+        node: payload.node,
+        ratio: valueToRatio({
+          value: resolveSliderValue(
+            payload.stateStore,
+            payload.stableId,
+            props
+          ),
+          min,
+          max,
+        }),
         isVertical: !isHorizontal,
       }),
+  });
+
+  const keyHandler = createSliderKeyHandler({
+    disabled: props.disabled,
+    value: props.value,
+    defaultValue: props.defaultValue,
+    min,
+    max,
+    step: props.step,
+    onChange: props.onChange,
   });
 
   return createWidget({
     type: WidgetType.SliderBar,
     props: {
       value: props.value,
+      defaultValue: props.defaultValue,
       min,
       max,
       step: props.step,
@@ -112,7 +135,7 @@ export function SliderBar(props: SliderBarProps): ReconcilableWidget {
       height: isHorizontal ? 24 : 200,
       // The control paints its own track — the box itself is hit space.
       backgroundColor: "transparent",
-      focusable: focusableWhen(props.disabled),
+      focusable: focusableWhen(!props.disabled),
       pointerEvents: PointerEvents.Auto,
       ...style,
       _focus: focusStyle(style),
@@ -132,6 +155,10 @@ export function SliderBar(props: SliderBarProps): ReconcilableWidget {
       onPointerMove: (payload) => {
         onPointerMove?.(payload);
         drag.onPointerMove(payload);
+      },
+      onKeyDown: (payload) => {
+        onKeyDown?.(payload);
+        keyHandler(payload);
       },
     },
   });

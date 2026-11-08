@@ -1,6 +1,5 @@
 /** CircularSlider painter — track arc, filled arc, handle dot. */
-import { Palette } from "@vulcania/core";
-import { propsOf } from "@vulcania/core";
+import { Palette, propsOf } from "@vulcania/core";
 import {
   CircularProgressDirection,
   ProgressValueType,
@@ -16,12 +15,13 @@ import { paintInlineValueLabel } from "../label/paint.ts";
 import { HANDLE_SIZE } from "./geometry.ts";
 import { paintSliderHandle } from "./slider-handle.ts";
 import type { CircularSliderProps } from "./types.ts";
+import { resolveSliderValue } from "./value.ts";
 
 export const paintCircularSlider: WidgetPainter = (ctx, node) => {
   const props = propsOf<CircularSliderProps>(node.widget);
   const min = props.min ?? 0;
   const max = props.max ?? 100;
-  const value = props.value ?? min;
+  const value = resolveSliderValue(ctx.stateStore, node.stableId, props);
   const ratio = valueToRatio({ value, min, max });
 
   const thickness = props.thickness ?? 0.15;

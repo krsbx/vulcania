@@ -8,6 +8,7 @@
  */
 import { sdl, SdlDefines } from "@vulcania/bindings";
 import { type FontDescriptor, FontManager } from "@vulcania/fonts";
+import { setTimeout } from "node:timers/promises";
 import { type DecodedEvents, EventDecoder } from "./events.ts";
 import { AppWindow, type AppWindowOptions, type RGBA } from "./window.ts";
 
@@ -141,7 +142,7 @@ export class App {
       this.flushDestroyQueue();
       this.onFrameEnd?.(this);
 
-      await new Promise<void>((resolve) => setTimeout(resolve, FRAME_MS));
+      await setTimeout(FRAME_MS);
     }
 
     this.teardown();
@@ -183,5 +184,5 @@ export class App {
   }
 }
 
+export { type DecodedEvents, EventDecoder } from "./events.ts";
 export { AppWindow, type AppWindowOptions };
-export { EventDecoder, type DecodedEvents } from "./events.ts";

@@ -138,8 +138,3 @@ export function isOnCircularHandle(options: {
 
   return Math.hypot(x - handleCx, y - handleCy) <= HANDLE_SIZE / 2;
 }
-
-/** Current slider value from props — controlled (batch 2 convention). */
-export function sliderValue(props: { value?: number; min?: number }): number {
-  return props.value ?? props.min ?? 0;
-}

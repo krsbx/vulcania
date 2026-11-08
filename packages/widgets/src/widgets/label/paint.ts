@@ -1,6 +1,10 @@
 /** Inline value labels — flying-pan's renderer/paint/text value branch. */
 import { Palette } from "@vulcania/core";
-import { ProgressValueType, type TextStyle } from "@vulcania/layout";
+import {
+  ProgressValueType,
+  TextAlign,
+  type TextStyle,
+} from "@vulcania/layout";
 import {
   type Painter,
   parseColor,
@@ -46,7 +50,8 @@ export interface InlineValueLabelOptions {
   showValue?: ProgressValueType;
 }
 
-/** Text centered on a widget's box (progress fills, meters). */
+/** Text on a widget's box (progress fills, meters) — centered unless
+ *  `labelStyle.textAlign` says otherwise. */
 export function paintInlineValueLabel(
   gpu: Painter,
   font: TextPainter,
@@ -60,8 +65,13 @@ export function paintInlineValueLabel(
     height: 18,
   };
 
+  const align = options.labelStyle?.textAlign ?? TextAlign.Center;
+  let x = options.x + (options.w - measured.width) / 2;
+  if (align === TextAlign.Left) x = options.x;
+  if (align === TextAlign.Right) x = options.x + options.w - measured.width;
+
   font.draw(gpu, {
-    x: options.x + (options.w - measured.width) / 2,
+    x,
     y: options.y + (options.h - measured.height) / 2,
     text,
     tint: parseColor(options.labelStyle?.color ?? Palette.text),
@@ -75,6 +85,11 @@ export function paintInlineValueLabel(
  * `font` prop resolves through the context lookup — absent lookup
  * falls back to the default font (headless compat); a present lookup
  * with an unknown name fails loud (flying-pan semantics).
+ *
+ * `textAlign` aligns within the node's box — per line for wrapped
+ * labels, whole-run for unwrapped ones. Default LEFT (web body-text
+ * semantics), a deliberate divergence from flying-pan's Center default:
+ * tsgui's wrapped labels would visibly shift every existing app.
  */
 export const paintLabel: WidgetPainter = (ctx, node, style) => {
   const text = node.widget.props["text"];
@@ -83,12 +98,27 @@ export const paintLabel: WidgetPainter = (ctx, node, style) => {
   const font = resolveFont(ctx, node);
 
   const tint = parseColor((style as { color?: string }).color ?? Palette.text);
+  const align = (style as { textAlign?: TextAlign }).textAlign ?? TextAlign.Left;
+
+  // flying-pan's paintInlineLabel math, applied per line for wraps.
+  const alignX = (lineWidth: number): number => {
+    switch (align) {
+      case TextAlign.Center:
+        return node.screenX + (node.width - lineWidth) / 2;
+      case TextAlign.Right:
+        return node.screenX + node.width - lineWidth;
+      default:
+        return node.screenX;
+    }
+  };
+  const lineWidth = (line: string): number =>
+    font.measure?.(line)?.width ?? line.length * 8;
 
   if (node.textLayout) {
     const { lines, lineAdvance } = node.textLayout;
     for (const [i, line] of lines.entries()) {
       font.draw(ctx.gpu, {
-        x: node.screenX,
+        x: alignX(lineWidth(line)),
         y: node.screenY + i * lineAdvance,
         text: line,
         tint,
@@ -97,5 +127,10 @@ export const paintLabel: WidgetPainter = (ctx, node, style) => {
     return;
   }
 
-  font.draw(ctx.gpu, { x: node.screenX, y: node.screenY, text, tint });
+  font.draw(ctx.gpu, {
+    x: alignX(lineWidth(text)),
+    y: node.screenY,
+    text,
+    tint,
+  });
 };
