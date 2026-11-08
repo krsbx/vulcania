@@ -1,7 +1,7 @@
 // Auto inject library path
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
-import { resolveLibraryExtension, resolveLibraryPath } from "./resolver";
+import { resolveLibraryExtension, resolveLibraryPath } from "../resolver.ts";
 
 const extension = resolveLibraryExtension();
 
