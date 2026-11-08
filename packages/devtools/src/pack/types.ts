@@ -23,7 +23,7 @@ export interface AppMetadata {
    * Version of the app
    * @example "1.0.0"
    */
-  version: `${number}.${number}.${number}` | (string & {}) | null;
+  version: `${number}.${number}.${number}`;
   /**
    * Required for MacOS / Linux
    * @example "com.krsbx.vulcania"
@@ -33,7 +33,7 @@ export interface AppMetadata {
    * Icon of the app
    * @example "./icon.png"
    */
-  icon: string | null;
+  icon: string;
 }
 
 export interface WindowsMetadata extends AppMetadata {
