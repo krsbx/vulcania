@@ -120,13 +120,13 @@ export function createRangeSliderKeyHandler(
 
     // Handles can meet but never cross.
     if (handle === RangeHandle.Low) {
-      const next = Math.min(moved, high);
+      const next = clamp(Math.min(moved, high), options.min, options.max);
 
       if (next === low) return;
 
       options.onChange?.([next, high]);
     } else {
-      const next = Math.max(moved, low);
+      const next = clamp(Math.max(moved, low), options.min, options.max);
 
       if (next === high) return;
 
