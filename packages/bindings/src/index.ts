@@ -8,7 +8,7 @@
  * Libraries currently load eagerly at import; if one ever becomes
  * optional-heavy, give it a lazy `loadXxx()` instead of eager top-level await.
  */
-export { readCString } from "./read-cstring.ts";
+export { readCString } from "./read-cstring/index.ts";
 export { runtime, type Runtime } from "./runtime.ts";
 
 export * from "./libraries/image/index.ts";

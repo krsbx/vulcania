@@ -7,11 +7,17 @@
  * node:ffi's address-to-string conversion (the same primitive
  * string-returns.ts uses for wrapped returns).
  */
-import { runtime } from "./runtime.ts";
+import { createRequire } from "node:module";
+import { lazyload } from "../ffi.ts";
+import { runtime } from "../runtime.ts";
 
-const backend = await (runtime === "bun"
-  ? import("./read-cstring.bun.ts")
-  : import("./read-cstring.node.ts"));
+type Backend = Awaited<typeof import("./node.ts")>;
+
+const backend = lazyload<Backend>(() => {
+  const esmRequire = createRequire(import.meta.url);
+
+  return runtime === "bun" ? esmRequire("./bun.ts") : esmRequire("./node.ts");
+});
 
 export const readCString: (pointer: number | bigint) => string =
   backend.readCString;

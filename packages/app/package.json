@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "type": "module",
   "private": true,
+  "scripts": {
+    "build": "bun run build.ts"
+  },
   "dependencies": {
     "@vulcania/animation": "workspace:*",
     "@vulcania/fonts": "workspace:*",
@@ -15,10 +18,15 @@
     "@vulcania/widgets": "workspace:*"
   },
   "devDependencies": {
+    "@vulcania/build": "workspace:*",
     "@types/bun": "latest",
     "@types/node": "^26.6.6"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs"
+    }
   }
 }
