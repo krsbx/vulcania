@@ -1,8 +1,11 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as tsdown } from "tsdown";
-import { virtualEntryPlugin } from "../../plugins/entry.ts";
-import { createRequrePlugin, lazyLoadFfiPlugin } from "../../plugins/index.ts";
+import {
+  createRequirePlugin,
+  lazyLoadFfiPlugin,
+  virtualEntryPlugin,
+} from "../../plugins/index.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,7 +24,7 @@ export async function bundle(
     plugins: [
       virtualEntryPlugin(entryId, [injectPath, resolve(entryPoint)]),
       lazyLoadFfiPlugin,
-      createRequrePlugin,
+      createRequirePlugin,
     ],
     outDir: outputDir,
     outExtensions: () => ({ js: ".js" }),

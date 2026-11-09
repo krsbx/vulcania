@@ -5,7 +5,7 @@ const id = "virtual:create-require";
 const createRequirePattern =
   /const\s+(\w+)\s*=\s*createRequire\(\s*import\.meta\.url\s*\);?/;
 
-export const createRequrePlugin: TsdownPlugin = {
+export const createRequirePlugin: TsdownPlugin = {
   name: "create-require",
 
   transform(code, id) {
