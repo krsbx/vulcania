@@ -10,9 +10,7 @@
     "@vulcania/app": "workspace:*",
     "@vulcania/core": "workspace:*",
     "@vulcania/layout": "workspace:*",
-    "@vulcania/paint": "workspace:*",
-    "esbuild": "^0.28.2",
-    "resedit": "^3.1.0"
+    "@vulcania/paint": "workspace:*"
   },
   "devDependencies": {
     "@vulcania/build": "workspace:*",
