@@ -2,7 +2,8 @@
  * @vulcania/devtools — the developer umbrella apps install alongside the
  * toolkit: the FFI setup helpers (dylib download/unpack, moved from
  * tools/devtools) and the live inspector (`inspect(app)` — node:http +
- * SSE widget tree, selection highlight, frame graph).
+ * SSE widget tree, selection highlight, frame graph). Packing/building
+ * lives in @vulcania/build, not here.
  */
 export { nodeDetail, type NodeDetail } from "./inspect/detail.ts";
 export {
@@ -26,10 +27,7 @@ export { downloadFile } from "./ffi/downloader.ts";
 export { getReleases } from "./ffi/release/index.ts";
 export { unpack } from "./ffi/unpack.ts";
 
-export { LibraryExtension, LibraryPathResolution } from "./pack/enums.ts";
-export {
-  resolveLibraryExtension,
-  resolveLibraryPath,
-} from "./pack/resolver.ts";
+// Local platform/library vocabulary — the ffi setup's own copies; build
+// keeps its own under tools/build/src/pack.
 export { Library, Platform } from "./shared/enums.ts";
 export { resolveAssetExtension, resolvePlatform } from "./shared/utils.ts";
