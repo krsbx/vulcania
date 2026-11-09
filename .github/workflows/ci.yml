@@ -22,6 +22,8 @@ jobs:
         run: brew install sdl3 sdl3_image sdl3_ttf sdl3_mixer
       - name: Install dependencies
         run: bun install
+      - name: Build packages
+        run: bun run build
       - name: Lint
         run: bun run lint
       - name: Typecheck
