@@ -9,7 +9,7 @@ const prefix = "\0lazy-load-ffi:";
  * the other. Swap them for `process.getBuiltinModule`, which returns
  * `undefined` instead of throwing; the unused backend is never initialized.
  */
-export const lazyLoadFfiPlugin = {
+export const lazyLoadFfiPlugin: TsdownPlugin = {
   name: "lazy-load-ffi",
   resolveId(source) {
     if (/^(bun|node):ffi$/.test(source)) {
@@ -27,4 +27,4 @@ export const lazyLoadFfiPlugin = {
       code: `module.exports = process.getBuiltinModule(${JSON.stringify(source)}) ?? {};`,
     };
   },
-} satisfies TsdownPlugin;
+};
