@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import type { MacOSMetadata } from "../../types";
-import { toPlistEntry } from "../config";
+import type { MacOSMetadata } from "../../types.ts";
+import { toPlistEntry } from "../config/index.ts";
 
 export async function writePlistFile(
   distPath: string,

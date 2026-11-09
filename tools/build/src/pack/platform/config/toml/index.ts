@@ -1,5 +1,5 @@
 import type { Toml as TomlInstance } from "./types.ts";
-import { convertToToml } from "./utils";
+import { convertToToml } from "./utils.ts";
 
 interface TomlConstrutor {
   new <T extends Record<string, unknown>>(json: T): TomlInstance<T>;
