@@ -1,7 +1,7 @@
 import type { InlineConfig } from "tsdown";
-import { build as buildCjs } from "./cjs";
-import { build as buildEsm } from "./esm";
-import { build as buildTypes } from "./types";
+import { build as buildCjs } from "./cjs.ts";
+import { build as buildEsm } from "./esm.ts";
+import { build as buildTypes } from "./types.ts";
 
 type BuildOptions = InlineConfig & {
   /**

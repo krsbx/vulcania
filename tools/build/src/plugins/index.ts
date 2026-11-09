@@ -1,2 +1,3 @@
+export { virtualEntryPlugin } from "./entry.ts";
 export { lazyLoadFfiPlugin } from "./ffi.ts";
-export { createRequrePlugin } from "./require.ts";
+export { createRequirePlugin } from "./require.ts";

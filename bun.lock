@@ -16,6 +16,7 @@
         "@vulcania/animation": "workspace:*",
         "@vulcania/app": "workspace:*",
         "@vulcania/bindings": "workspace:*",
+        "@vulcania/build": "workspace:*",
         "@vulcania/core": "workspace:*",
         "@vulcania/devtools": "workspace:*",
         "@vulcania/fonts": "workspace:*",

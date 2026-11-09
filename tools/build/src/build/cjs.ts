@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { type InlineConfig, build as tsdown } from "tsdown";
-import { createRequrePlugin, lazyLoadFfiPlugin } from "../plugins/index.ts";
+import { createRequirePlugin, lazyLoadFfiPlugin } from "../plugins/index.ts";
 
 export async function build(
   source: string,
@@ -11,7 +11,7 @@ export async function build(
       resolve(source, "src/**/*.ts"),
       `!${resolve(source, "src/**/*.d.ts")}`,
     ],
-    deps: { neverBundle: ["bun", "bun:ffi", "node:ffi"] },
+    deps: { neverBundle: ["bun"] },
     format: ["cjs"],
     outDir: "dist/cjs",
     // `.js` (not `.mjs`) — packages are `type: module`.
@@ -21,7 +21,7 @@ export async function build(
     sourcemap: false,
     clean: true,
     dts: false,
-    plugins: [lazyLoadFfiPlugin, createRequrePlugin],
+    plugins: [lazyLoadFfiPlugin, createRequirePlugin],
     ...options,
   });
 }
