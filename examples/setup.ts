@@ -1,4 +1,4 @@
-import { resolveLibraryExtension } from "@vulcania/devtools";
+import { resolveLibraryExtension } from "@vulcania/build";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
