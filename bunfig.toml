@@ -1,1 +1,0 @@
-preload = ["./examples/download.ts", "./examples/setup.ts"]
