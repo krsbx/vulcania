@@ -1,24 +1,27 @@
 import { resolve } from "node:path";
-import { type Options as BuildOptions, build as tsup } from "tsup";
+import { type InlineConfig, build as tsdown } from "tsdown";
+import { createRequrePlugin, lazyLoadFfiPlugin } from "../plugins/index.ts";
 
-export async function build(source: string, options: BuildOptions = {}) {
-  return tsup({
-    splitting: false,
+export async function build(
+  source: string,
+  options: InlineConfig = {}
+): Promise<void> {
+  await tsdown({
     entry: [
       resolve(source, "src/**/*.ts"),
       `!${resolve(source, "src/**/*.d.ts")}`,
     ],
-    external: ["bun", "bun:ffi", "node:ffi"],
+    deps: { neverBundle: ["bun", "bun:ffi", "node:ffi"] },
     format: ["esm"],
     outDir: "dist/esm",
+    // `.js` (not `.mjs`) — packages are `type: module`.
+    fixedExtension: false,
     minify: false,
-    bundle: true,
     treeshake: true,
     sourcemap: false,
     clean: true,
-    skipNodeModulesBundle: true,
     dts: false,
-    esbuildPlugins: [],
+    plugins: [lazyLoadFfiPlugin, createRequrePlugin],
     ...options,
   });
 }

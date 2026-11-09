@@ -16,5 +16,8 @@
   },
   "scripts": {
     "build": "bun run build.ts"
+  },
+  "dependencies": {
+    "tsdown": "^0.23.7"
   }
 }

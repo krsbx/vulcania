@@ -1,9 +1,9 @@
-import { type Options as TsUpBuildOptions } from "tsup";
+import type { InlineConfig } from "tsdown";
 import { build as buildCjs } from "./cjs";
 import { build as buildEsm } from "./esm";
 import { build as buildTypes } from "./types";
 
-type BuildOptions = TsUpBuildOptions & {
+type BuildOptions = InlineConfig & {
   /**
    * Enable CJS build
    * @default false
