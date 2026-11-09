@@ -6,12 +6,17 @@
  * scancode@24, text pointer@24, wheel scroll@24, motion x@28, button
  * u8@24 — the offsets the gallery proved against real events).
  */
-import { EventType, readCString, Scancode, SdlDefines } from "@vulcania/bindings";
+import {
+  EventType,
+  readCString,
+  Scancode,
+  SdlDefines,
+} from "@vulcania/bindings";
 import {
   KeyModifiers,
   type KeyModifiers as KeyModifiersType,
+  type MouseButton,
 } from "@vulcania/core";
-import type { MouseButton } from "@vulcania/core";
 import {
   type KeyboardInputEvent,
   KeyboardInputKind,

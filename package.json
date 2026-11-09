@@ -50,6 +50,8 @@
     ]
   },
   "scripts": {
+    "build": "bun run bin/build.ts",
+    "cleanup": "bun run bin/cleanup.ts",
     "codegen:all": "bun run tools/codegen/src/index.ts all",
     "codegen:image": "bun run tools/codegen/src/index.ts image",
     "codegen:mixer": "bun run tools/codegen/src/index.ts mixer",
