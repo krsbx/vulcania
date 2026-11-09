@@ -11,7 +11,7 @@ export async function build(
       resolve(source, "src/**/*.ts"),
       `!${resolve(source, "src/**/*.d.ts")}`,
     ],
-    deps: { neverBundle: ["bun", "bun:ffi", "node:ffi"] },
+    deps: { neverBundle: ["bun"] },
     format: ["cjs"],
     outDir: "dist/cjs",
     // `.js` (not `.mjs`) — packages are `type: module`.
