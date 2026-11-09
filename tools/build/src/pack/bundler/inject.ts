@@ -1,25 +1,28 @@
-// Auto inject library path
+// Auto inject library paths — resolved relative to the executable so a
+// packed app finds its dylibs wherever the ffi folder is installed
+// next to it. Filenames come from the per-platform table in the
+// resolver (pinned to version.lock — update it on a dylib bump).
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
-import { resolveLibraryExtension, resolveLibraryPath } from "../resolver.ts";
+import { Library } from "../enums.ts";
+import { resolveLibraryFileName, resolveLibraryPath } from "../resolver.ts";
 
-const extension = resolveLibraryExtension();
+const LIBRARY_ENV: Record<Library, string> = {
+  [Library.SDL3]: "VULCANIA_SDL3_PATH",
+  [Library.SDL3Image]: "VULCANIA_SDL3_IMAGE_PATH",
+  [Library.SDL3Mixer]: "VULCANIA_SDL3_MIXER_PATH",
+  [Library.SDL3Ttf]: "VULCANIA_SDL3_TTF_PATH",
+  [Library.SDL3Shadercross]: "VULCANIA_SDL3_SHADERCROSS_PATH",
+};
 
-function resolveLoadPath(filename: string): string {
+function resolveLoadPath(library: Library): string {
   return resolve(
     realpathSync(process.execPath),
     resolveLibraryPath(),
-    `${filename}${extension}`
+    resolveLibraryFileName(library)
   );
 }
 
-process.env.VULCANIA_SDL3_IMAGE_PATH = resolveLoadPath(`libSDL3_image.0.4.8`);
-
-process.env.VULCANIA_SDL3_MIXER_PATH = resolveLoadPath(`libSDL3_mixer.0.2.4`);
-
-process.env.VULCANIA_SDL3_PATH = resolveLoadPath(`libSDL3.0`);
-
-process.env.VULCANIA_SDL3_SHADERCROSS_PATH =
-  resolveLoadPath(`libSDL3_shadercross`);
-
-process.env.VULCANIA_SDL3_TTF_PATH = resolveLoadPath(`libSDL3_ttf.0.2.2`);
+for (const library of Object.values(Library)) {
+  process.env[LIBRARY_ENV[library]] = resolveLoadPath(library);
+}
